@@ -1,19 +1,19 @@
-### apt-get install python-pip #sudo
-### pip install tendo #sudo
-### pip install pyyaml #sudo
-### crontab -e and set @reboot python /home/$user$/$script$.py #without sudo
+#!/usr/bin/env python3
 
-# need install before import
+###
+### Count blocks modified by minecraft player
+###
+
+# https://www.python.org/dev/peps/pep-0008/#comments
+
 import sys
 import fcntl
 import yaml
 import mysql.connector
 from mysql.connector import errorcode
-# from tendo import singleton # not work now
 from os import path
 
-script_directory = path.dirname(path.realpath(__file__))
-file_config = yaml.load(open(path.join(script_directory, "./../config/config.yml"), 'r'))
+from config import Config
 
 # run only single instance of program
 # run_only_once = singleton.SingleInstance();
@@ -21,10 +21,10 @@ file_config = yaml.load(open(path.join(script_directory, "./../config/config.yml
 ###
 ### prepare database
 ###
-def prepare_database_structure(world):
+def prepare_database_structure(destination_database, world):
 
 	# do connection
-	connection = get_connection("block_counter")
+	connection = get_connection(destination_database)
 
 	# make cursor for fetch data
 	cursor = connection.cursor()
@@ -56,16 +56,16 @@ def prepare_database_structure(world):
 ###
 def get_connection(database):
 
-	file_connection_config = file_config["connection"]
+	connection_configuration = Config("./../config/config.yml").get_connection_configuration();
 
 	# get database connection
 	db_config = {
-		"host": file_connection_config["host"],
-		"user": file_connection_config["user"],
-		"port": file_connection_config["port"],
-		"password": file_connection_config["password"],
+		"host": connection_configuration["host"],
+		"user": connection_configuration["user"],
+		"port": connection_configuration["port"],
+		"password": connection_configuration["password"],
 		"database": database,
-		"raise_on_warnings": file_connection_config["raise_on_warnings"],
+		"raise_on_warnings": connection_configuration["raise_on_warnings"],
 	}
 
 	# do connection
@@ -84,10 +84,10 @@ def get_connection(database):
 ###
 ### get block id for process
 ###
-def get_position(wolrd):
+def get_position(destination_database, wolrd):
 
 	# do connection
-	connection = get_connection('block_counter')
+	connection = get_connection(destination_database)
 
 	# make cursor for fetch data
 	cursor = connection.cursor()
@@ -124,10 +124,10 @@ def get_position(wolrd):
 ###
 ### update how many items affected
 ###
-def set_position(world, position):
+def set_position(destination_database, world, position):
 
 	# do connection
-	connection = get_connection("block_counter")
+	connection = get_connection(destination_database)
 
 	# make cursor for fetch data
 	cursor = connection.cursor()
@@ -145,19 +145,16 @@ def set_position(world, position):
 ###
 ###	get data from blocklog database
 ###
-def get_raw_data(world, number_of_items):
-
-	# get database name
-	database_name = file_config["database"]
+def get_raw_data(database_source, database_destination, world, number_of_items):
 
 	# do connection
-	connection = get_connection(database_name)
+	connection = get_connection(database_source)
 
 	# make cursor for fetch data
 	cursor = connection.cursor()
 
 	# select items from id
-	select_start = get_position(world)
+	select_start = get_position(database_destination, world)
 	# select data to id -> prevent system overload
 	select_end = select_start + number_of_items
 
@@ -181,7 +178,7 @@ def get_raw_data(world, number_of_items):
 			 tmp[columns[index][0]] = column
 		raw_data.append(tmp)
 
-	set_position(world, select_start + cursor.rowcount)
+	set_position(database_destination, world, select_start + cursor.rowcount)
 
 	cursor.close()
 	connection.close()
@@ -229,7 +226,7 @@ def process_raw_data(raw_data):
 ###
 ### save into database
 ###
-def save_data(world, data):
+def save_data(destination_database, world, data):
 
 	def structure_exist(cursor, world, user, block):
 
@@ -245,7 +242,7 @@ def save_data(world, data):
 
 
 	# do connection
-	connection = get_connection('block_counter')
+	connection = get_connection(destination_database)
 
 	# make cursor for fetch data
 	cursor = connection.cursor()
@@ -289,21 +286,32 @@ def save_data(world, data):
 ### main function
 ###
 def main():
-	world_name = file_config["get_worlds"]
-	number_of_items = file_config["number_of_items"]
 
-	for name in world_name:
-		prepare_database_structure(name)
+	config = Config("./../config/config.yml")
 
-		raw_data = get_raw_data(name, number_of_items)
+	if config.is_debug_mode_on():
+		print("Start blocklog_counter with debugging on.")
+
+	worlds = config.get_world_names()
+	maximum_to_proccess = config.get_maximum_processed()
+
+	destination_database = config.get_destination_database()
+	source_database = config.get_source_database()
+
+	for world_name in worlds:
+		prepare_database_structure(destination_database, world_name)
+
+		raw_data = get_raw_data(source_database, destination_database, world_name, maximum_to_proccess)
+
+		print(raw_data)
 
 		data = process_raw_data(raw_data)
 
-		save_data(name, data)
+		save_data(destination_database, world_name, data)
 
 if __name__ == "__main__":
 
-	pid_file = 'program.pid'
+	pid_file = "program.pid"
 	fp = open(pid_file, 'w')
 
 	try:

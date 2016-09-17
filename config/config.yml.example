@@ -1,13 +1,13 @@
 connection:
-  host: 'localhost'
-  port: '3306'
-  user: 'test'
-  password: 'test'
+  host: "localhost"
+  port: "3306"
+  user: "test"
+  password: "test"
   raise_on_warnings: false
-database: 'dev_mc_blocklog'
-get_worlds:
-- '`lb-world`'
-# - '`lb-mine`'
-# - '`lb-minearea`'
-# - '`lb-aluron-world`'
-number_of_items: 10000000
+database_source: "blocklog"
+database_destination: "blocklog_counter"
+worlds_to_proccess:
+- "`lb-world`"
+- "`lb-mine`"
+maximum_processed: 100000
+debugging: true

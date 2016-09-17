@@ -8,4 +8,4 @@ script_path=$(dirname "$(readlink -f "$0")")
 cd $script_path
 
 
-python3 $script_path/src/block_counter.py
+python3 $script_path/src/main.py
