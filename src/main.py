@@ -14,6 +14,7 @@ from mysql.connector import errorcode
 from os import path
 
 from config import Config
+from source_database import SourceDatabase
 
 # run only single instance of program
 # run_only_once = singleton.SingleInstance();
@@ -51,6 +52,8 @@ def prepare_database_structure(destination_database, world):
 	connection.commit()
 	connection.close()
 
+
+
 ###
 ###
 ###
@@ -80,6 +83,8 @@ def get_connection(database):
 			exit(error)
 	else:
 		return connection;
+
+
 
 ###
 ### get block id for process
@@ -121,6 +126,8 @@ def get_position(destination_database, wolrd):
 
 	return result
 
+
+
 ###
 ### update how many items affected
 ###
@@ -142,48 +149,34 @@ def set_position(destination_database, world, position):
 	connection.close()
 
 
+
 ###
 ###	get data from blocklog database
 ###
 def get_raw_data(database_source, database_destination, world, number_of_items):
-
-	# do connection
-	connection = get_connection(database_source)
-
-	# make cursor for fetch data
-	cursor = connection.cursor()
 
 	# select items from id
 	select_start = get_position(database_destination, world)
 	# select data to id -> prevent system overload
 	select_end = select_start + number_of_items
 
-	select_structure = ('''
-		SELECT id, playerid, replaced, type, data
-		FROM ''' + world + '''
-		WHERE id BETWEEN %s AND %s
-	''')
+	blocklog_database = SourceDatabase(get_connection(database_source), database_source, world)
 
-	cursor.execute(select_structure, [select_start, select_end - 1])
+	blocklog_database.fetch_data_from_to(select_start, select_end)
 
-	if cursor.rowcount == 0:
+	database_row_count = blocklog_database.get_row_count()
+
+	if database_row_count == 0:
 		exit("no data to process")
 
-	columns = cursor.description
 	raw_data = []
-	database_data = cursor.fetchall()
-	for value in database_data:
-		tmp = {}
-		for (index,column) in enumerate(value):
-			 tmp[columns[index][0]] = column
-		raw_data.append(tmp)
+	for value in blocklog_database.get_item():
+		raw_data.append(value)
 
-	set_position(database_destination, world, select_start + cursor.rowcount)
-
-	cursor.close()
-	connection.close()
+	set_position(database_destination, world, select_start + database_row_count)
 
 	return raw_data
+
 
 
 ###
@@ -222,6 +215,8 @@ def process_raw_data(raw_data):
 	# 		print("player[{}] replace {} now {}x".format(user, replaced, pick[user][replaced]))
 
 	return {"pick": pick, "put": put}
+
+
 
 ###
 ### save into database
@@ -282,6 +277,8 @@ def save_data(destination_database, world, data):
 	connection.commit()
 	connection.close()
 
+
+
 ###
 ### main function
 ###
@@ -302,8 +299,6 @@ def main():
 		prepare_database_structure(destination_database, world_name)
 
 		raw_data = get_raw_data(source_database, destination_database, world_name, maximum_to_proccess)
-
-		print(raw_data)
 
 		data = process_raw_data(raw_data)
 
