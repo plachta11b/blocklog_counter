@@ -9,6 +9,7 @@
 import sys
 import fcntl
 import yaml
+import time
 import mysql.connector
 from mysql.connector import errorcode
 from os import path
@@ -153,42 +154,34 @@ def set_position(destination_database, world, position):
 ###
 ###	get data from blocklog database
 ###
-def get_raw_data(database_source, database_destination, world, number_of_items):
+def get_data(database_source, database_destination, world, number_of_items):
 
 	# select items from id
 	select_start = get_position(database_destination, world)
+
 	# select data to id -> prevent system overload
 	select_end = select_start + number_of_items
 
 	blocklog_database = SourceDatabase(get_connection(database_source), database_source, world)
-
 	blocklog_database.fetch_data_from_to(select_start, select_end)
-
 	database_row_count = blocklog_database.get_row_count()
-
-	if database_row_count == 0:
-		exit("no data to process")
-
-	raw_data = []
-	for value in blocklog_database.get_item():
-		raw_data.append(value)
 
 	set_position(database_destination, world, select_start + database_row_count)
 
-	return raw_data
+	return blocklog_database
 
 
 
 ###
-###	modify raw data
+###	compress raw data
 ###
-def process_raw_data(raw_data):
+def process_data(blocklog_database):
 
 	# data storage
 	pick = {};
 	put = {};
 
-	for (item) in raw_data:
+	for item in blocklog_database.get_item():
 		user = item["playerid"]
 		replaced = item["replaced"]
 		type = item["type"]
@@ -286,6 +279,8 @@ def main():
 
 	config = Config("./../config/config.yml")
 
+	main_start = time.time()
+
 	if config.is_debug_mode_on():
 		print("Start blocklog_counter with debugging on.")
 
@@ -298,11 +293,17 @@ def main():
 	for world_name in worlds:
 		prepare_database_structure(destination_database, world_name)
 
-		raw_data = get_raw_data(source_database, destination_database, world_name, maximum_to_proccess)
+		database_data = get_data(source_database, destination_database, world_name, maximum_to_proccess)
 
-		data = process_raw_data(raw_data)
+		data = process_data(database_data)
 
 		save_data(destination_database, world_name, data)
+
+	main_end = time.time()
+	main_elapsed = main_end - main_start
+
+	if config.is_debug_mode_on():
+		print("Time main running: {}".format(main_elapsed))
 
 if __name__ == "__main__":
 
