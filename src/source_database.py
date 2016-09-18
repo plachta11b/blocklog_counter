@@ -9,9 +9,8 @@ class SourceDatabase:
 
 	select_data_from_to_structure = None
 
-	def __init__(self, connection, database_name, world):
+	def __init__(self, connection, world):
 
-		# self.connection = get_connection(database_name)
 		self.connection = connection
 
 		# make cursor for fetch data
