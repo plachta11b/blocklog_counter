@@ -29,12 +29,12 @@ def get_data(blocklog_database, blocklog_counter_database, world, number_of_item
 	# select data to id -> prevent system overload
 	select_end = select_start + number_of_items
 
-	blocklog_database.fetch_data_from_to(select_start, select_end)
-	database_row_count = blocklog_database.get_row_count()
+	source_data = blocklog_database.fetch_data_from_to(world, select_start, select_end)
+	database_row_count = source_data.get_row_count()
 
 	blocklog_counter_database.set_position(world, select_start + database_row_count)
 
-	return blocklog_database
+	return source_data
 
 
 
@@ -96,10 +96,9 @@ def main():
 	# get database connection
 	connection = Connection(config)
 	block_counter_database = DestinationDatabase(connection.get_connection(config.get_destination_database()), config)
+	blocklog_database = SourceDatabase(connection.get_connection(config.get_source_database()))
 
 	for world_name in worlds:
-
-		blocklog_database = SourceDatabase(connection.get_connection(config.get_source_database()), world_name)
 
 		database_data = get_data(blocklog_database, block_counter_database, world_name, maximum_to_proccess)
 
