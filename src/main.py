@@ -17,37 +17,19 @@ from source_database import SourceDatabase
 from destination_database import DestinationDatabase
 from connection import Connection
 
-
-###
-###	get data from blocklog database
-###
-def get_data(blocklog_database, blocklog_counter_database, world, number_of_items):
-
-	# select items from id
-	select_start = blocklog_counter_database.get_position(world)
-
-	# select data to id -> prevent system overload
-	select_end = select_start + number_of_items
-
-	source_data = blocklog_database.fetch_data_from_to(world, select_start, select_end)
-	database_row_count = source_data.get_row_count()
-
-	blocklog_counter_database.set_position(world, select_start + database_row_count)
-
-	return source_data
-
-
+def process_world():
+	pass
 
 ###
 ###	compress raw data
 ###
-def process_data(blocklog_database):
+def process_data(raw_data):
 
 	# data storage
 	pick = {};
 	put = {};
 
-	for item in blocklog_database.get_item():
+	for item in raw_data.get_item():
 		user = item["playerid"]
 		replaced = item["replaced"]
 		type = item["type"]
@@ -73,7 +55,7 @@ def process_data(blocklog_database):
 	# 	for replaced in pick[user]:
 	# 		print("player[{}] replace {} now {}x".format(user, replaced, pick[user][replaced]))
 
-	return {"pick": pick, "put": put}
+	return {"pick": pick, "put": put, "start_id": raw_data.get_start_id(), "end_id": raw_data.get_end_id()}
 
 
 ###
@@ -95,16 +77,22 @@ def main():
 
 	# get database connection
 	connection = Connection(config)
-	block_counter_database = DestinationDatabase(connection.get_connection(config.get_destination_database()), config)
+	blocklog_counter_database = DestinationDatabase(connection.get_connection(config.get_destination_database()), config)
 	blocklog_database = SourceDatabase(connection.get_connection(config.get_source_database()))
 
 	for world_name in worlds:
 
-		database_data = get_data(blocklog_database, block_counter_database, world_name, maximum_to_proccess)
+		# select items from id
+		select_start = blocklog_counter_database.get_position(world_name)
 
-		data = process_data(database_data)
+		source_data = blocklog_database.get_data(world_name, select_start, maximum_to_proccess)
 
-		block_counter_database.save_data(world_name, data)
+		data = process_data(source_data)
+
+		blocklog_counter_database.save_data(world_name, data)
+
+		blocklog_counter_database.set_position(world_name, source_data.get_end_id())
+
 
 	# calculate process runtime
 	main_end = time.time()
