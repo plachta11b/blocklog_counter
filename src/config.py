@@ -31,3 +31,6 @@ class Config:
 
 	def is_debug_mode_on(self):
 		return self.file_config["debugging"]
+	def get_table_prefix():
+		return "bc_"
+		# return self.file_config["table_prefix"]

@@ -19,7 +19,7 @@ class SourceDatabase:
 
 		self.select_data_from_to_structure = ('''
 			SELECT id, playerid, replaced, type, data
-			FROM ''' + world + '''
+			FROM `''' + world + '''`
 			WHERE id BETWEEN %s AND %s
 		''')
 

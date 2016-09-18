@@ -17,9 +17,6 @@ from os import path
 from config import Config
 from source_database import SourceDatabase
 
-# run only single instance of program
-# run_only_once = singleton.SingleInstance();
-
 ###
 ### prepare database
 ###
@@ -31,9 +28,14 @@ def prepare_database_structure(destination_database, world):
 	# make cursor for fetch data
 	cursor = connection.cursor()
 
+	prefix = Config.get_table_prefix()
+
+	table_world = "`{}{}`".format(prefix,world)
+	table_position = "`{}position`".format(prefix)
+
 	# do database schema if not exist
 	cursor.execute('''
-		CREATE TABLE IF NOT EXISTS ''' + world + ''' (
+		CREATE TABLE IF NOT EXISTS ''' + table_world + ''' (
 			`user` smallint(5) unsigned NOT NULL,
 			`block` int(11) NOT NULL,
 			`pick` int(11) NOT NULL DEFAULT 0,
@@ -43,9 +45,9 @@ def prepare_database_structure(destination_database, world):
 	''')
 
 	cursor.execute('''
-		CREATE TABLE IF NOT EXISTS `block_counter_position` (
+		CREATE TABLE IF NOT EXISTS ''' + table_position + ''' (
 			`world` varchar(64) COLLATE 'utf8_general_ci' NOT NULL,
-			`block_id` int unsigned NOT NULL DEFAULT 0
+			`last_block_id` int unsigned NOT NULL DEFAULT 0
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 	''')
 
@@ -99,7 +101,7 @@ def get_position(destination_database, wolrd):
 	cursor = connection.cursor()
 
 	cursor.execute('''
-		SELECT block_id FROM `block_counter_position`
+		SELECT last_block_id FROM `bc_position`
 		WHERE world=%s
 	''', [wolrd])
 
@@ -108,14 +110,14 @@ def get_position(destination_database, wolrd):
 
 	if result is None:
 		cursor.execute('''
-			INSERT INTO `block_counter_position` (world, block_id)
+			INSERT INTO `bc_position` (world, last_block_id)
 			VALUES (%s, 0);
 		''', [wolrd])
 
 		result = 0
 	else:
 		cursor.execute('''
-			SELECT block_id FROM `block_counter_position`
+			SELECT last_block_id FROM `bc_position`
 			WHERE world=%s
 		''', [wolrd])
 
@@ -141,7 +143,7 @@ def set_position(destination_database, world, position):
 	cursor = connection.cursor()
 
 	cursor.execute('''
-		UPDATE `block_counter_position` SET block_id=%s
+		UPDATE `bc_position` SET last_block_id=%s
 		WHERE world=%s
 	''', [position, world])
 
@@ -220,7 +222,7 @@ def save_data(destination_database, world, data):
 
 		select = '''
 			SELECT pick
-			FROM ''' + world + '''
+			FROM `bc_''' + world + '''`
 			WHERE user=%s AND block=%s
 		'''
 
@@ -236,13 +238,13 @@ def save_data(destination_database, world, data):
 	cursor = connection.cursor()
 
 	insert_item = ('''
-		INSERT INTO ''' + world + '''
+		INSERT INTO `bc_''' + world + '''`
 		(user, block, pick, put)
 		VALUES (%s, %s, %s, %s)
 	''')
 
 	update_item = ('''
-		UPDATE ''' + world + '''
+		UPDATE `bc_''' + world + '''`
 		SET pick=pick+%s, put=put+%s
 		WHERE user=%s AND block=%s
 	''')
@@ -307,12 +309,15 @@ def main():
 
 if __name__ == "__main__":
 
+	# open file for locking
 	pid_file = "program.pid"
 	fp = open(pid_file, 'w')
 
+	# try lock file to see if only one instance is running
 	try:
 		fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
 	except IOError:
 		exit("ERROR: Another instance is running");
 
+	# no other instance is running -> start main function
 	main()
