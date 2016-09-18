@@ -16,45 +16,7 @@ from os import path
 
 from config import Config
 from source_database import SourceDatabase
-
-###
-### prepare database
-###
-def prepare_database_structure(destination_database, world):
-
-	# do connection
-	connection = get_connection(destination_database)
-
-	# make cursor for fetch data
-	cursor = connection.cursor()
-
-	prefix = Config.get_table_prefix()
-
-	table_world = "`{}{}`".format(prefix,world)
-	table_position = "`{}position`".format(prefix)
-
-	# do database schema if not exist
-	cursor.execute('''
-		CREATE TABLE IF NOT EXISTS ''' + table_world + ''' (
-			`user` smallint(5) unsigned NOT NULL,
-			`block` int(11) NOT NULL,
-			`pick` int(11) NOT NULL DEFAULT 0,
-			`put` int(11) NOT NULL DEFAULT 0,
-			KEY `user` (`user`)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-	''')
-
-	cursor.execute('''
-		CREATE TABLE IF NOT EXISTS ''' + table_position + ''' (
-			`world` varchar(64) COLLATE 'utf8_general_ci' NOT NULL,
-			`last_block_id` int unsigned NOT NULL DEFAULT 0
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-	''')
-
-	cursor.close()
-	connection.commit()
-	connection.close()
-
+from destination_database import DestinationDatabase
 
 
 ###
@@ -90,76 +52,12 @@ def get_connection(database):
 
 
 ###
-### get block id for process
-###
-def get_position(destination_database, wolrd):
-
-	# do connection
-	connection = get_connection(destination_database)
-
-	# make cursor for fetch data
-	cursor = connection.cursor()
-
-	cursor.execute('''
-		SELECT last_block_id FROM `bc_position`
-		WHERE world=%s
-	''', [wolrd])
-
-	# is there any row
-	result = cursor.fetchone()
-
-	if result is None:
-		cursor.execute('''
-			INSERT INTO `bc_position` (world, last_block_id)
-			VALUES (%s, 0);
-		''', [wolrd])
-
-		result = 0
-	else:
-		cursor.execute('''
-			SELECT last_block_id FROM `bc_position`
-			WHERE world=%s
-		''', [wolrd])
-
-		result = cursor.fetchone()[0]
-
-	cursor.close()
-	connection.commit()
-	connection.close()
-
-	return result
-
-
-
-###
-### update how many items affected
-###
-def set_position(destination_database, world, position):
-
-	# do connection
-	connection = get_connection(destination_database)
-
-	# make cursor for fetch data
-	cursor = connection.cursor()
-
-	cursor.execute('''
-		UPDATE `bc_position` SET last_block_id=%s
-		WHERE world=%s
-	''', [position, world])
-
-	cursor.close()
-	connection.commit()
-	connection.close()
-
-
-
-###
 ###	get data from blocklog database
 ###
-def get_data(database_source, database_destination, world, number_of_items):
+def get_data(database_source, blocklog_counter_database, world, number_of_items):
 
 	# select items from id
-	select_start = get_position(database_destination, world)
+	select_start = blocklog_counter_database.get_position(world)
 
 	# select data to id -> prevent system overload
 	select_end = select_start + number_of_items
@@ -168,7 +66,7 @@ def get_data(database_source, database_destination, world, number_of_items):
 	blocklog_database.fetch_data_from_to(select_start, select_end)
 	database_row_count = blocklog_database.get_row_count()
 
-	set_position(database_destination, world, select_start + database_row_count)
+	blocklog_counter_database.set_position(world, select_start + database_row_count)
 
 	return blocklog_database
 
@@ -212,68 +110,6 @@ def process_data(blocklog_database):
 	return {"pick": pick, "put": put}
 
 
-
-###
-### save into database
-###
-def save_data(destination_database, world, data):
-
-	def structure_exist(cursor, world, user, block):
-
-		select = '''
-			SELECT pick
-			FROM `bc_''' + world + '''`
-			WHERE user=%s AND block=%s
-		'''
-
-		cursor.execute(select, [user, block])
-
-		return not cursor.fetchone() is None
-
-
-	# do connection
-	connection = get_connection(destination_database)
-
-	# make cursor for fetch data
-	cursor = connection.cursor()
-
-	insert_item = ('''
-		INSERT INTO `bc_''' + world + '''`
-		(user, block, pick, put)
-		VALUES (%s, %s, %s, %s)
-	''')
-
-	update_item = ('''
-		UPDATE `bc_''' + world + '''`
-		SET pick=pick+%s, put=put+%s
-		WHERE user=%s AND block=%s
-	''')
-
-	pick = data["pick"]
-	put = data["put"]
-
-	for user in pick:
-		for replaced in pick[user]:
-			if structure_exist(cursor, world, user, replaced):
-				cursor.execute(update_item, [pick[user][replaced], 0, user, replaced])
-			else:
-				cursor.execute(insert_item, [user, replaced, pick[user][replaced], 0])
-
-	connection.commit()
-
-	for user in put:
-		for type in put[user]:
-			if structure_exist(cursor, world, user, type):
-				cursor.execute(update_item, [0, put[user][type], user, type])
-			else:
-				cursor.execute(insert_item, [user, type, put[user][type], 0])
-
-	cursor.close()
-	connection.commit()
-	connection.close()
-
-
-
 ###
 ### main function
 ###
@@ -289,17 +125,16 @@ def main():
 	worlds = config.get_world_names()
 	maximum_to_proccess = config.get_maximum_processed()
 
-	destination_database = config.get_destination_database()
+	block_counter_database = DestinationDatabase(get_connection(config.get_destination_database()), config)
+
 	source_database = config.get_source_database()
 
 	for world_name in worlds:
-		prepare_database_structure(destination_database, world_name)
-
-		database_data = get_data(source_database, destination_database, world_name, maximum_to_proccess)
+		database_data = get_data(source_database, block_counter_database, world_name, maximum_to_proccess)
 
 		data = process_data(database_data)
 
-		save_data(destination_database, world_name, data)
+		block_counter_database.save_data(world_name, data)
 
 	main_end = time.time()
 	main_elapsed = main_end - main_start
