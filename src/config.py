@@ -37,5 +37,9 @@ class Config:
 
 	def is_debug_mode_on(self):
 		return self.file_config["debugging"]
+
+	def is_agresive_process_on(self):
+		return self.file_config["agresive_process"]
+
 	def get_table_prefix(self):
 		return self.file_config["table_prefix"]

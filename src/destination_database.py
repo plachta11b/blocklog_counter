@@ -147,8 +147,6 @@ class DestinationDatabase:
 				else:
 					self.cursor.execute(insert_item, [user, replaced, pick[user][replaced], 0])
 
-		self.connection.commit()
-
 		for user in put:
 			for type in put[user]:
 				if structure_exist(self.cursor, table_world, user, type):

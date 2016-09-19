@@ -80,16 +80,31 @@ def main():
 
 	for world_name in worlds:
 
-		# select items from id
-		select_start = blocklog_counter_database.get_position(world_name)
+		while True:
 
-		source_data = blocklog_database.get_data(world_name, select_start, maximum_to_proccess)
+			# select items from id
+			select_start = blocklog_counter_database.get_position(world_name)
 
-		data = process_data(source_data)
+			source_data = blocklog_database.get_data(world_name, select_start, maximum_to_proccess)
 
-		blocklog_counter_database.save_data(world_name, data)
+			# if no data for world then try next world
+			if source_data.get_row_count() == 0:
+				break
 
-		blocklog_counter_database.set_position(world_name, source_data.get_end_id())
+			data = process_data(source_data)
+
+			blocklog_counter_database.save_data(world_name, data)
+
+			blocklog_counter_database.set_position(world_name, source_data.get_end_id())
+
+			if config.is_agresive_process_on():
+				# prevent endless loop consuming whole resources
+				time.sleep(1)
+			else:
+				break
+
+		if config.is_debug_mode_on():
+			print(world_name + " done...")
 
 
 	# calculate process runtime
