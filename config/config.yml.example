@@ -7,7 +7,7 @@ connection:
 database_source: "blocklog"
 database_destination: "blocklog_counter"
 worlds_to_proccess:
-- "`lb-world`"
-- "`lb-mine`"
+- "lb-world"
+- "lb-mine"
 maximum_processed: 100000
 debugging: true
