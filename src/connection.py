@@ -27,7 +27,7 @@ class Connection:
 			if error.errno == errorcode.ER_ACCESS_DENIED_ERROR:
 				exit("ERROR: Something is wrong with your user name or password")
 			elif error.errno == errorcode.ER_BAD_DB_ERROR:
-				exit("ERROR: Database '" + database + "' does not exists")
+				exit("ERROR: Database '" + connection_configuration["database"] + "' does not exists")
 			else:
 				exit(error)
 		else:
