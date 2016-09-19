@@ -15,7 +15,6 @@ from os import path
 from config import Config
 from source_database import SourceDatabase
 from destination_database import DestinationDatabase
-from connection import Connection
 
 def process_world():
 	pass
@@ -76,9 +75,8 @@ def main():
 	maximum_to_proccess = config.get_maximum_processed()
 
 	# get database connection
-	connection = Connection(config)
-	blocklog_counter_database = DestinationDatabase(connection.get_connection(config.get_destination_database()), config)
-	blocklog_database = SourceDatabase(connection.get_connection(config.get_source_database()))
+	blocklog_counter_database = DestinationDatabase(config)
+	blocklog_database = SourceDatabase(config)
 
 	for world_name in worlds:
 

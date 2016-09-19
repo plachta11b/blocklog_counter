@@ -14,14 +14,11 @@ class Config:
 		self.path_to_config = path_to_config
 		self.file_config = yaml.load(open(path.join(script_directory, "./../config/config.yml"), 'r'))
 
-	def get_connection_configuration(self):
-		return self.file_config["connection"]
+	def get_source_connection_configuration(self):
+		return self.file_config["connection_source"]
 
-	def get_source_database(self):
-		return self.file_config["database_source"]
-
-	def get_destination_database(self):
-		return self.file_config["database_destination"]
+	def get_destination_connection_configuration(self):
+		return self.file_config["connection_destination"]
 
 	def get_world_names(self):
 		return self.file_config["worlds_to_proccess"]

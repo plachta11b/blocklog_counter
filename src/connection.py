@@ -13,21 +13,16 @@ class Connection:
 	###
 	def get_connection(self, database):
 
-		connection_configuration = self.config.get_connection_configuration();
+		if database == "source":
+			connection_configuration = self.config.get_source_connection_configuration();
+		elif database == "destination":
+			connection_configuration = self.config.get_destination_connection_configuration();
+		else:
+			exit("ERROR: Choose source or destination database")
 
 		# get database connection
-		db_config = {
-			"host": connection_configuration["host"],
-			"user": connection_configuration["user"],
-			"port": connection_configuration["port"],
-			"password": connection_configuration["password"],
-			"database": database,
-			"raise_on_warnings": connection_configuration["raise_on_warnings"],
-		}
-
-		# do connection
 		try:
-			connection = mysql.connector.connect(**db_config)
+			connection = mysql.connector.connect(**connection_configuration)
 		except mysql.connector.Error as error:
 			if error.errno == errorcode.ER_ACCESS_DENIED_ERROR:
 				exit("ERROR: Something is wrong with your user name or password")

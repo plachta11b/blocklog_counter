@@ -1,11 +1,17 @@
-connection:
+connection_source:
   host: "localhost"
   port: "3306"
   user: "test"
   password: "test"
+  database: "blocklog"
   raise_on_warnings: false
-database_source: "blocklog"
-database_destination: "blocklog_counter"
+connection_destination:
+  host: "localhost"
+  port: "3306"
+  user: "test"
+  password: "test"
+  database: "blocklog_counter"
+  raise_on_warnings: false
 table_prefix: "bc_"
 worlds_to_proccess:
 - "lb-world"

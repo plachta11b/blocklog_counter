@@ -1,14 +1,16 @@
+from connection import Connection
+
 class SourceDatabase:
 
 	connection = None
 	cursor = None
 
-	def __init__(self, connection):
+	def __init__(self, config):
 
-		self.connection = connection
+		self.connection = Connection(config).get_connection("source")
 
 		# make cursor for fetch data
-		self.cursor = connection.cursor()
+		self.cursor = self.connection.cursor()
 
 	def get_sql_select(self, world):
 		return ('''

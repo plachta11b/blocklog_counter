@@ -1,3 +1,4 @@
+from connection import Connection
 
 # SQL WTF
 # Backticks (`) are to be used for table and column identifiers
@@ -10,9 +11,9 @@ class DestinationDatabase:
 	config = None
 	table_prefix = ""
 
-	def __init__(self, connection, config):
-		self.connection = connection
-		self.cursor = connection.cursor()
+	def __init__(self, config):
+		self.connection = Connection(config).get_connection("destination")
+		self.cursor = self.connection.cursor()
 		self.config = config
 		self.table_prefix = config.get_table_prefix()
 
