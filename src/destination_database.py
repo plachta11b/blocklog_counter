@@ -28,7 +28,7 @@ class DestinationDatabase:
 	def prepare_database_structure(self, world):
 
 		table_world = "`{}{}`".format(self.table_prefix, world)
-		table_position = "`{}position`".format(self.table_prefix)
+		table_position = "`{}bcposition`".format(self.table_prefix)
 
 		# do database schema if not exist
 		self.cursor.execute('''
@@ -57,7 +57,7 @@ class DestinationDatabase:
 	###
 	def get_position(self, world):
 
-		table = self.table_prefix + "position"
+		table = self.table_prefix + "bcposition"
 
 		self.cursor.execute('''
 			SELECT last_block_id
@@ -94,7 +94,7 @@ class DestinationDatabase:
 	###
 	def set_position(self, world, position):
 
-		table = self.table_prefix + "position"
+		table = self.table_prefix + "bcposition"
 
 		self.cursor.execute('''
 			UPDATE `{}` SET last_block_id='{}'
@@ -110,11 +110,13 @@ class DestinationDatabase:
 	###
 	def save_data(self, world, data):
 
-		def structure_exist(cursor, world, user, block):
+		table_world = "`{}{}`".format(self.table_prefix, world)
+
+		def structure_exist(cursor, table_world, user, block):
 
 			select = '''
 				SELECT pick
-				FROM `bc_''' + world + '''`
+				FROM ''' + table_world + '''
 				WHERE user=%s AND block=%s
 			'''
 
@@ -123,13 +125,13 @@ class DestinationDatabase:
 			return not cursor.fetchone() is None
 
 		insert_item = ('''
-			INSERT INTO `bc_''' + world + '''`
+			INSERT INTO ''' + table_world + '''
 			(user, block, pick, put)
 			VALUES (%s, %s, %s, %s)
 		''')
 
 		update_item = ('''
-			UPDATE `bc_''' + world + '''`
+			UPDATE ''' + table_world + '''
 			SET pick=pick+%s, put=put+%s
 			WHERE user=%s AND block=%s
 		''')
@@ -139,7 +141,7 @@ class DestinationDatabase:
 
 		for user in pick:
 			for replaced in pick[user]:
-				if structure_exist(self.cursor, world, user, replaced):
+				if structure_exist(self.cursor, table_world, user, replaced):
 					self.cursor.execute(update_item, [pick[user][replaced], 0, user, replaced])
 				else:
 					self.cursor.execute(insert_item, [user, replaced, pick[user][replaced], 0])
@@ -148,7 +150,7 @@ class DestinationDatabase:
 
 		for user in put:
 			for type in put[user]:
-				if structure_exist(self.cursor, world, user, type):
+				if structure_exist(self.cursor, table_world, user, type):
 					self.cursor.execute(update_item, [0, put[user][type], user, type])
 				else:
 					self.cursor.execute(insert_item, [user, type, put[user][type], 0])

@@ -6,6 +6,7 @@ connection:
   raise_on_warnings: false
 database_source: "blocklog"
 database_destination: "blocklog_counter"
+table_prefix: "bc_"
 worlds_to_proccess:
 - "lb-world"
 - "lb-mine"
