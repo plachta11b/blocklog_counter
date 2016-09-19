@@ -38,9 +38,10 @@ class DestinationDatabase:
 				`block` int(11) NOT NULL,
 				`pick` int(11) NOT NULL DEFAULT 0,
 				`put` int(11) NOT NULL DEFAULT 0,
-				KEY `user` (`user`)
+				primary key (user, block)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 		''')
+				# -- KEY `user` (`user`)
 
 		self.cursor.execute('''
 			CREATE TABLE IF NOT EXISTS ''' + table_position + ''' (
@@ -113,45 +114,20 @@ class DestinationDatabase:
 
 		table_world = "`{}{}`".format(self.table_prefix, world)
 
-		def structure_exist(cursor, table_world, user, block):
-
-			select = '''
-				SELECT pick
-				FROM ''' + table_world + '''
-				WHERE user=%s AND block=%s
-			'''
-
-			cursor.execute(select, [user, block])
-
-			return not cursor.fetchone() is None
-
-		insert_item = ('''
-			INSERT INTO ''' + table_world + '''
-			(user, block, pick, put)
-			VALUES (%s, %s, %s, %s)
-		''')
-
-		update_item = ('''
-			UPDATE ''' + table_world + '''
-			SET pick=pick+%s, put=put+%s
-			WHERE user=%s AND block=%s
-		''')
-
 		pick = data["pick"]
 		put = data["put"]
 
+		update_query = ('''
+			INSERT INTO ''' + table_world + ''' (user, block, pick, put) VALUES (%(user)s, %(block)s, %(pick)s, %(put)s)
+			ON DUPLICATE KEY UPDATE pick=pick+%(pick)s, put=put+%(put)s;
+		''')
+
 		for user in pick:
 			for replaced in pick[user]:
-				if structure_exist(self.cursor, table_world, user, replaced):
-					self.cursor.execute(update_item, [pick[user][replaced], 0, user, replaced])
-				else:
-					self.cursor.execute(insert_item, [user, replaced, pick[user][replaced], 0])
+				self.cursor.execute(update_query, {"user": user, "block": replaced, "pick": pick[user][replaced], "put": 0})
 
 		for user in put:
 			for type in put[user]:
-				if structure_exist(self.cursor, table_world, user, type):
-					self.cursor.execute(update_item, [0, put[user][type], user, type])
-				else:
-					self.cursor.execute(insert_item, [user, type, put[user][type], 0])
+				self.cursor.execute(update_query, {"user": user, "block": type, "pick": 0, "put": put[user][type]})
 
 		self.connection.commit()
